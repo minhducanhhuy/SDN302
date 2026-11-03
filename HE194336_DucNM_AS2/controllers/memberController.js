@@ -1,5 +1,8 @@
+const mongoose = require('mongoose');
 const Member = require('../models/Members');
 const Loan = require('../models/Loans');
+
+const hasInvalidId = id => !mongoose.isValidObjectId(id);
 
 exports.getAllMembers = async (req, res) => {
     const members = await Member.find().sort({ fullName: 1 });
@@ -7,6 +10,9 @@ exports.getAllMembers = async (req, res) => {
 };
 
 exports.getMemberById = async (req, res) => {
+    if (hasInvalidId(req.params.id)) {
+        return res.status(404).json({ message: 'Member not found.' });
+    }
     const member = await Member.findById(req.params.id);
     if (!member) {
         return res.status(404).json({ message: 'Member not found.' });
@@ -20,6 +26,9 @@ exports.createMember = async (req, res) => {
 };
 
 exports.updateMember = async (req, res) => {
+    if (hasInvalidId(req.params.id)) {
+        return res.status(404).json({ message: 'Member not found.' });
+    }
     if (req.method === 'PUT') {
         const requiredFields = ['fullName', 'email', 'phone'];
         const missingFields = requiredFields.filter(field => req.body[field] === undefined);
@@ -30,7 +39,7 @@ exports.updateMember = async (req, res) => {
         }
     }
     const member = await Member.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
+        returnDocument: 'after',
         runValidators: true
     });
     if (!member) {
@@ -40,6 +49,9 @@ exports.updateMember = async (req, res) => {
 };
 
 exports.deleteMember = async (req, res) => {
+    if (hasInvalidId(req.params.id)) {
+        return res.status(404).json({ message: 'Member not found.' });
+    }
     const hasLoanHistory = await Loan.exists({ member_id: req.params.id });
     if (hasLoanHistory) {
         return res.status(409).json({

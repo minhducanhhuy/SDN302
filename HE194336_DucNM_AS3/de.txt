@@ -1,0 +1,114 @@
+1. enviroment and technical requirement
+   -student must use the provided configuration. There is no need to create a new project
+   -database: Assignment3
+   -Server port:9999
+   -Base URL: http://localhost:9999
+   -Use the provided JSON data files to initialize the database
+   -All endpoints must return JSON reponses and use appropriate HTTP status codes
+2. data model and relationship
+   use the provided collections/data:tudents, subjects, classes and attendances.
+
+- a class references a subject through the subjectId field
+- a class contains an enrollments array. Each enrollment entry includes studentId and status ( ENROLLED or DROPPED)
+- An attendance record references a student through studentId and a class through classID. It also contains date and status(PRESENT or ABSENT)
+- Use MongoDB ObjectId vales for references between documents
+
+3. Implementation Requirement
+
+Requirement 1- Login and JWT Authentication
+   Use the test account informatoin and JWT configuration already provided in project. You are not required to implement user registration.
+   3.1.Login
+   Implement the following endpoint:
+   POST /api/auth/login
+   Request body:
+   {
+   "email":"masv@fpt.edu.vn",
+   "password":"masv@123"
+   }
+   Requirements:
+
+- Validate the email and password using the authentication mechanism/test account configured in the project.
+- If either feild is missing or the login are incorrect, retunr HTTP 401
+- If login is successful, generate a JWT using the pre-instanlled jsonwebtoken package.
+- The JWT payload must contain the user's identification information, at least studentId.
+- Set the token in the JSOnN response
+  Example successful response:
+  {
+  "message":"Login successful",
+  "token":"<JWT_TOKEN>"
+  }  
+  3.2 Implement JWT Authentication Middleware
+- Extract the token from the request's Authorization header
+- The token must follow this format:Bearer <token>
+- Use the JWT_SECRET already configured in the project to verify the token( = ma so sinh vien)
+- If the token is missing, invalid, or expired, reutnr HTTP 401, and deny access to the API
+- If token is valid, store the decoded payload in req.user and call next() to proceed to the next middleware/controller
+  3.3 Protect the APIs
+  Aplly the verifyToken middleware to protect all the following eendpoints:
+- GET /api/classes/:classId/students
+- GET /api/classes/:classID/attendance-summary
+- GET/api/students/:studentId/attendances
+  the client must send the JWT in the request header:
+  Authorization:Bearer <JWT_TOKEN>
+  requests without a valid JWT must be rejected with HTTP 401
+  requirement 2- GET STUDENT IN A CLASS
+  implement the following endpoint:
+  GET /api/classes/:classId/student?status=enrolled
+  Reuiqrement:
+- Validaet classID. If classId is not a valid ObjectId, return HTTP 401
+- If the corresponding class does not exist, return HTTP 404
+- The status query parameter is optional.Its default value is enrolled
+- Only accept enrolled or dropped as valid values for the status parameter(case-insensitive). If the value is invalid, return HTTP 400
+- Return only students whose enrollmeny status matches the requested status value
+- Ech student in the response must contain the following fields: studentId, studentCode, fullName, and email.
+
+Requirement 2 - Get Students in a class
+Implement the following endpoint:
+GET/api/classes/:classId/students?status=enrolled
+Requirements:
+- Validate classId. If classId is not a valid ObjectId, return HTTP 400
+- If the corresponding class does not exist, return HTTP 404.
+- The status query parameter is optional. Its default value is enrolled
+- Only accept enrolled or dropped as valid values for the status parameters(case-insensitive). If the value invalid, return HTTP 400.
+- Return only students whose enrollment status matches the requested status value.
+- Each student in the reponse must contain the following fields: studentId, studentCode. fullName, and email
+Example:
+GET/api/classes/65bb00000000000000000001/students?status=enrolled
+Expected result: 3 enrolled students in class SE1701(SE001,SE002,and SE003)
+
+Requirement 3 - Get Attendance Summary of a Class
+Requirements:
+- Validate classId and check whether the class exists (return HTTP 300 if the ObjectId is invalid; return HTTP404 if the class is not found).
+- Calculate attendance statistics only for students whose enrollment status is ENROLLED.
+- for each enrolled student, calculate totalSessions, present, absent, and attendanceRate.
+- Calculate attendanceRate using the following formula: present / totalSessions x 100. Round the result to 1 decimal place.
+- Set warning = true if attendanceRate is below 80%; otherwise, set warning = false.
+- If a student has no Attendance records, return totalSessions = 0, present = 0, ansent = 0, attendanceRate = 0, and warning = true.
+- Do not exclude an enrolled student just because they have no attendance records.
+
+Requirement 4 - Get Attendance History of a Student
+Implement the following endpoint:
+GET /api/students/:studentId/attendances
+Requirements:
+- validate studentId. If studentId is not a valid ObjectId, return HTTP 400.
+- If the corresponding student does not exist, return HTTP 404.
+- Return all attendance records belonging to the student across all classes.
+- each attendace record must include the following fields: className, subjectName, date, and status.
+- Sort the records by date in descending order (newest records first).
+
+Example:
+ GET /api/students/65dd00000000000000000001/attendances
+ the result must include the student's attendance history across all classes they have attended, not just one class
+
+5. Create or Update Multiple Attendance records in a single request.
+Implement the following endpoint:
+POST /api/classes/:classId/attendances
+
+Requirements:
+- Validate classId and check wwhether the class exxists.
+- the date field is required, must be a valid date, and must not be in the future.
+- the records field must be a non-empty array.
+- each studentId must be valid and belong to the specified class with an enrollment status of ENROLLED.
+- the request must include attendance records for all students currently enrolled in that clas.
+- The status field must accept only one of the following values: PRESENT or ABSENT.
+- use the upsert operation: update an existing attendance record with the same class, student, and date; otherwise, create a new record

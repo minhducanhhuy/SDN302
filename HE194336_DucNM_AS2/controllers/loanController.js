@@ -35,7 +35,7 @@ const validateReferences = async (loanData, { requireActiveMember = false } = {}
         throw requestError('Member not found.', 404);
     }
     if (requireActiveMember && !member.isActive) {
-        throw requestError('Only active members are allowed to borrow books.', 403);
+        throw requestError('Only active members are allowed to borrow books.', 400);
     }
 
     if (!Array.isArray(loanData.items) || loanData.items.length === 0) {
@@ -71,7 +71,7 @@ const changeAvailableCopies = async (items, direction) => {
             if (!bookExists) {
                 throw requestError(`Book not found: ${book_id}.`, 404);
             }
-            throw requestError(`Not enough available copies for book ${book_id}.`, 409);
+            throw requestError(`Not enough available copies for book ${book_id}.`, 400);
         }
         changedItems.push({ book_id, quantity });
     }
@@ -124,6 +124,9 @@ exports.getLoansByMemberId = async (req, res) => {
 exports.createLoan = async (req, res) => {
     if (Object.hasOwn(req.body, 'status') || Object.hasOwn(req.body, 'returnDate')) {
         throw requestError('New loans must start in the Borrowing status.');
+    }
+    if (!req.body.dueDate) {
+        throw requestError('dueDate is required.');
     }
     await validateReferences(req.body, { requireActiveMember: true });
     const items = aggregateItems(req.body.items);
@@ -191,7 +194,7 @@ exports.updateLoan = async (req, res) => {
     const reservedItems = await changeAvailableCopies(reserveItems, -1);
     try {
         const loan = await Loan.findByIdAndUpdate(req.params.id, updatedData, {
-            new: true,
+            returnDocument: 'after',
             runValidators: true
         });
         if (!loan) {
@@ -213,7 +216,7 @@ exports.returnLoan = async (req, res) => {
         return res.status(404).json({ message: 'Loan not found.' });
     }
     if (loan.returnDate || loan.status === 'Returned') {
-        return res.status(409).json({ message: 'This loan has already been returned.' });
+        return res.status(400).json({ message: 'This loan has already been returned.' });
     }
 
     const returnedAt = new Date();
@@ -229,10 +232,10 @@ exports.returnLoan = async (req, res) => {
                 status: 'Returned'
             }
         },
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
     );
     if (!updatedLoan) {
-        return res.status(409).json({ message: 'This loan has already been returned.' });
+        return res.status(400).json({ message: 'This loan has already been returned.' });
     }
 
     try {

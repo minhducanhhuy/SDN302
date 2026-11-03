@@ -67,7 +67,7 @@ exports.updateBook = async (req, res) => {
         return res.status(400).json({ message: copiesError });
     }
     const book = await Book.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
+        returnDocument: 'after',
         runValidators: true
     });
     if (!book) {
